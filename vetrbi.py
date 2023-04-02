@@ -247,6 +247,7 @@ class MyViterbiDecoder:
             split_word = "<eps>"
 
         phones = best_out_sequence.split(split_word)
+        phones[0] = phones[0].replace("sil","")
         print('Phones: ', phones)
         print('best_out_sequence: ', best_out_sequence)
         print('best_state_sequence: ', best_state_sequence)
