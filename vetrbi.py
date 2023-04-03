@@ -3,13 +3,14 @@ import math
 import openfst_python as fst
 import time
 from utils import parse_lexicon, generate_symbol_tables
+import numpy as np
 
 class MyViterbiDecoder:
     
     NLL_ZERO = 1e10  # define a constant representing -log(0).  This is really infinite, but approximate
                      # it here with a very large number
     
-    def __init__(self, f, audio_file_name, verbose=False, use_pruning=False, determinized=False, bigram = False):
+    def __init__(self, f, audio_file_name, verbose=False, use_pruning=False, determinized=False, bigram = False, histogram_pruning_threshold = 0):
         """Set up the decoder class with an audio file and WFST f
         """
         self.lex = parse_lexicon('lexicon.txt')
@@ -24,6 +25,8 @@ class MyViterbiDecoder:
         self.determinized = determinized
         self.bigram = bigram
         self.word_start = -1
+        self.histogram_pruning_threshold = histogram_pruning_threshold
+
 
         for state in self.f.states():
             for arc in self.f.arcs(state):
@@ -156,10 +159,26 @@ class MyViterbiDecoder:
                                 self.W[t][j] = [arc.olabel]
                             else:
                                 self.W[t][j] = []
-        best_path = min(self.V[t])
-        for idx, path in enumerate(self.V[t]):
-            if path - best_path > self.prune_threshold:
-                self.V[t][idx] = self.NLL_ZERO
+
+        if self.use_pruning and self.histogram_pruning_threshold == 0:    
+            best_path = min(self.V[t])
+            for idx, path in enumerate(self.V[t]):
+                if path - best_path > self.prune_threshold:
+                    self.V[t][idx] = self.NLL_ZERO
+
+        if self.use_pruning and self.histogram_pruning_threshold > 0:
+            # get the indices and values of paths in V[t] that do not have NLL_ZERO probability
+            indices = [i for i, x in enumerate(self.V[t]) if x != self.NLL_ZERO]
+            values = [x for x in self.V[t] if x != self.NLL_ZERO]
+
+            # check if there are more than histogram_threshold paths
+            if len(values) > self.histogram_pruning_threshold:
+                # keep the histogram_threshold best paths and set the rest to NLL_ZERO
+                best_paths = np.argpartition(values, self.histogram_pruning_threshold)[:self.histogram_pruning_threshold]
+                for idx in indices:
+                    if idx not in best_paths:
+                        self.V[t][idx] = self.NLL_ZERO
+            
                          
     
     def finalise_decoding(self):
