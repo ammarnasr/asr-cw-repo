@@ -195,7 +195,7 @@ class MyViterbiDecoder:
                     
         # get a list of all states where there was a path ending with non-zero probability
         finished = [x for x in self.V[-1] if x < self.NLL_ZERO]
-        if not finished:  # if empty
+        if not finished and self.verbose:  # if empty
             print("No path got to the end of the observations.")
         
         
